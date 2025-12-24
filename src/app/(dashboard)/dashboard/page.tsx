@@ -1,8 +1,12 @@
 'use client'
 
-import { useAuth } from '@/hooks'
+import Link from 'next/link'
+import { format } from 'date-fns'
+import { useAuth, useAccounts, useIncome } from '@/hooks'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Progress } from '@/components/ui/progress'
 import {
   Wallet,
   TrendingUp,
@@ -10,10 +14,79 @@ import {
   PiggyBank,
   ArrowUpRight,
   ArrowDownRight,
+  Plus,
+  ArrowRight,
 } from 'lucide-react'
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+} from 'recharts'
+import { CHART_COLORS } from '@/lib/constants'
 
 export default function DashboardPage() {
-  const { profile, isLoading } = useAuth()
+  const { profile, isLoading: authLoading } = useAuth()
+  const { accounts, totalBalance, isLoading: accountsLoading } = useAccounts()
+  const { incomes, currentMonthTotal, incomeByCategory, isLoading: incomeLoading } = useIncome()
+
+  const isLoading = authLoading || accountsLoading || incomeLoading
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-KE', {
+      style: 'currency',
+      currency: 'KES',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount)
+  }
+
+  // Calculate last month's income for comparison
+  const lastMonthTotal = incomes
+    .filter((inc) => {
+      const incomeDate = new Date(inc.date)
+      const now = new Date()
+      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1)
+      return (
+        incomeDate.getMonth() === lastMonth.getMonth() &&
+        incomeDate.getFullYear() === lastMonth.getFullYear()
+      )
+    })
+    .reduce((sum, inc) => sum + Number(inc.amount), 0)
+
+  const incomeChange = lastMonthTotal > 0
+    ? ((currentMonthTotal - lastMonthTotal) / lastMonthTotal) * 100
+    : currentMonthTotal > 0 ? 100 : 0
+
+  // Get recent income transactions (last 5)
+  const recentIncomes = incomes.slice(0, 5)
+
+  // Monthly income data for bar chart (last 6 months)
+  const monthlyIncomeData = Array.from({ length: 6 }, (_, i) => {
+    const date = new Date()
+    date.setMonth(date.getMonth() - (5 - i))
+    const monthIncomes = incomes.filter((inc) => {
+      const incDate = new Date(inc.date)
+      return (
+        incDate.getMonth() === date.getMonth() &&
+        incDate.getFullYear() === date.getFullYear()
+      )
+    })
+    return {
+      month: format(date, 'MMM'),
+      income: monthIncomes.reduce((sum, inc) => sum + Number(inc.amount), 0),
+      expenses: 0, // Will be added when expenses are implemented
+    }
+  })
+
+  // Calculate savings rate
+  const savingsRate = currentMonthTotal > 0 ? 100 : 0 // Will be updated when expenses are added
 
   if (isLoading) {
     return <DashboardSkeleton />
@@ -22,13 +95,29 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Welcome Section */}
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight">
-          Welcome back, {profile?.full_name?.split(' ')[0] || 'there'}!
-        </h2>
-        <p className="text-muted-foreground">
-          Here&apos;s an overview of your finances.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">
+            Welcome back, {profile?.full_name?.split(' ')[0] || 'there'}!
+          </h2>
+          <p className="text-muted-foreground">
+            Here&apos;s an overview of your finances.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Link href="/accounts">
+            <Button variant="outline" size="sm">
+              <Plus className="mr-2 h-4 w-4" />
+              Add Account
+            </Button>
+          </Link>
+          <Link href="/income">
+            <Button size="sm">
+              <Plus className="mr-2 h-4 w-4" />
+              Add Income
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -39,9 +128,9 @@ export default function DashboardPage() {
             <Wallet className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">KSh 0.00</div>
+            <div className="text-2xl font-bold">{formatCurrency(totalBalance)}</div>
             <p className="text-xs text-muted-foreground">
-              Across all accounts
+              Across {accounts.length} account{accounts.length !== 1 ? 's' : ''}
             </p>
           </CardContent>
         </Card>
@@ -52,10 +141,18 @@ export default function DashboardPage() {
             <TrendingUp className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">KSh 0.00</div>
+            <div className="text-2xl font-bold text-green-600">
+              {formatCurrency(currentMonthTotal)}
+            </div>
             <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <ArrowUpRight className="h-3 w-3 text-green-500" />
-              <span>+0% from last month</span>
+              {incomeChange >= 0 ? (
+                <ArrowUpRight className="h-3 w-3 text-green-500" />
+              ) : (
+                <ArrowDownRight className="h-3 w-3 text-red-500" />
+              )}
+              <span className={incomeChange >= 0 ? 'text-green-600' : 'text-red-600'}>
+                {incomeChange >= 0 ? '+' : ''}{incomeChange.toFixed(0)}% from last month
+              </span>
             </p>
           </CardContent>
         </Card>
@@ -66,10 +163,10 @@ export default function DashboardPage() {
             <TrendingDown className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">KSh 0.00</div>
+            <div className="text-2xl font-bold text-red-600">{formatCurrency(0)}</div>
             <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <ArrowDownRight className="h-3 w-3 text-red-500" />
-              <span>-0% from last month</span>
+              <ArrowDownRight className="h-3 w-3 text-green-500" />
+              <span>Coming in Phase 3</span>
             </p>
           </CardContent>
         </Card>
@@ -80,9 +177,9 @@ export default function DashboardPage() {
             <PiggyBank className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">0%</div>
+            <div className="text-2xl font-bold">{savingsRate}%</div>
             <p className="text-xs text-muted-foreground">
-              Of monthly income
+              Of monthly income saved
             </p>
           </CardContent>
         </Card>
@@ -92,33 +189,107 @@ export default function DashboardPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
         <Card className="col-span-4">
           <CardHeader>
-            <CardTitle>Income vs Expenses</CardTitle>
+            <CardTitle>Monthly Income</CardTitle>
             <CardDescription>
-              Your financial activity over the last 6 months
+              Your income over the last 6 months
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-[300px] flex items-center justify-center border-2 border-dashed rounded-lg">
-              <p className="text-muted-foreground">
-                Chart will appear once you have transactions
-              </p>
-            </div>
+            {monthlyIncomeData.some(d => d.income > 0) ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={monthlyIncomeData}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis dataKey="month" className="text-xs" />
+                  <YAxis
+                    className="text-xs"
+                    tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+                  />
+                  <Tooltip
+                    formatter={(value) => [formatCurrency(Number(value)), 'Income']}
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--card))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px',
+                    }}
+                  />
+                  <Bar dataKey="income" fill="#10B981" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[300px] flex items-center justify-center border-2 border-dashed rounded-lg">
+                <div className="text-center">
+                  <p className="text-muted-foreground mb-2">No income data yet</p>
+                  <Link href="/income">
+                    <Button variant="outline" size="sm">
+                      Add your first income
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
         <Card className="col-span-3">
           <CardHeader>
-            <CardTitle>Expense Breakdown</CardTitle>
+            <CardTitle>Income by Category</CardTitle>
             <CardDescription>
-              This month&apos;s spending by category
+              This month&apos;s income breakdown
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-[300px] flex items-center justify-center border-2 border-dashed rounded-lg">
-              <p className="text-muted-foreground">
-                No expenses recorded yet
-              </p>
-            </div>
+            {incomeByCategory.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={incomeByCategory}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={100}
+                    paddingAngle={2}
+                    dataKey="value"
+                  >
+                    {incomeByCategory.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={entry.color || CHART_COLORS[index % CHART_COLORS.length]}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value) => formatCurrency(Number(value))}
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--card))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px',
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[300px] flex items-center justify-center border-2 border-dashed rounded-lg">
+                <p className="text-muted-foreground">
+                  No income recorded this month
+                </p>
+              </div>
+            )}
+            {incomeByCategory.length > 0 && (
+              <div className="mt-4 space-y-2">
+                {incomeByCategory.map((cat, index) => (
+                  <div key={cat.name} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: cat.color || CHART_COLORS[index % CHART_COLORS.length] }}
+                      />
+                      <span className="text-sm">{cat.name}</span>
+                    </div>
+                    <span className="text-sm font-medium">{formatCurrency(cat.value)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -126,37 +297,135 @@ export default function DashboardPage() {
       {/* Bottom Row */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>
-          <CardHeader>
-            <CardTitle>Recent Transactions</CardTitle>
-            <CardDescription>Your latest financial activity</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Recent Income</CardTitle>
+              <CardDescription>Your latest income transactions</CardDescription>
+            </div>
+            <Link href="/income">
+              <Button variant="ghost" size="sm">
+                View all
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center justify-center h-[200px] text-muted-foreground">
-              No transactions yet
-            </div>
+            {recentIncomes.length > 0 ? (
+              <div className="space-y-4">
+                {recentIncomes.map((income) => (
+                  <div key={income.id} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-2 h-2 rounded-full"
+                        style={{
+                          backgroundColor: income.income_categories?.color || '#10B981',
+                        }}
+                      />
+                      <div>
+                        <p className="text-sm font-medium">
+                          {income.income_categories?.name || 'Income'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {format(new Date(income.date), 'dd MMM')}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-sm font-medium text-green-600">
+                      +{formatCurrency(Number(income.amount))}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-[200px] text-muted-foreground">
+                No income recorded yet
+              </div>
+            )}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>Budget Progress</CardTitle>
-            <CardDescription>How you&apos;re tracking against budgets</CardDescription>
+            <CardTitle>Your Accounts</CardTitle>
+            <CardDescription>Quick view of your accounts</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center justify-center h-[200px] text-muted-foreground">
-              No budgets set up yet
-            </div>
+            {accounts.length > 0 ? (
+              <div className="space-y-4">
+                {accounts.slice(0, 4).map((account) => (
+                  <div key={account.id} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-8 h-8 rounded-lg flex items-center justify-center"
+                        style={{ backgroundColor: `${account.color}20` }}
+                      >
+                        <Wallet
+                          className="h-4 w-4"
+                          style={{ color: account.color || '#3B82F6' }}
+                        />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">{account.name}</p>
+                        <p className="text-xs text-muted-foreground capitalize">
+                          {account.type}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-sm font-medium">
+                      {formatCurrency(Number(account.balance))}
+                    </span>
+                  </div>
+                ))}
+                {accounts.length > 4 && (
+                  <Link href="/accounts">
+                    <Button variant="ghost" size="sm" className="w-full">
+                      View all {accounts.length} accounts
+                    </Button>
+                  </Link>
+                )}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-[200px]">
+                <p className="text-muted-foreground mb-2">No accounts yet</p>
+                <Link href="/accounts">
+                  <Button variant="outline" size="sm">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Account
+                  </Button>
+                </Link>
+              </div>
+            )}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>Goals Progress</CardTitle>
-            <CardDescription>Track your financial goals</CardDescription>
+            <CardTitle>Coming Soon</CardTitle>
+            <CardDescription>Features in upcoming phases</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center justify-center h-[200px] text-muted-foreground">
-              No goals created yet
+            <div className="space-y-4">
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-sm">Phase 3: Expenses</span>
+                  <span className="text-xs text-muted-foreground">Next</span>
+                </div>
+                <Progress value={0} className="h-2" />
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-sm">Phase 4: Budgets</span>
+                  <span className="text-xs text-muted-foreground">Upcoming</span>
+                </div>
+                <Progress value={0} className="h-2" />
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-sm">Phase 5: PAYE Calculator</span>
+                  <span className="text-xs text-muted-foreground">Upcoming</span>
+                </div>
+                <Progress value={0} className="h-2" />
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -184,6 +453,10 @@ function DashboardSkeleton() {
             </CardContent>
           </Card>
         ))}
+      </div>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+        <Skeleton className="h-[400px] col-span-4" />
+        <Skeleton className="h-[400px] col-span-3" />
       </div>
     </div>
   )
