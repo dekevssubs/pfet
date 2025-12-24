@@ -2,11 +2,12 @@
 
 import Link from 'next/link'
 import { format } from 'date-fns'
-import { useAuth, useAccounts, useIncome, useExpenses } from '@/hooks'
+import { useAuth, useAccounts, useIncome, useExpenses, useBudgets } from '@/hooks'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Progress } from '@/components/ui/progress'
+import { Badge } from '@/components/ui/badge'
 import {
   Wallet,
   TrendingUp,
@@ -16,6 +17,8 @@ import {
   ArrowDownRight,
   Plus,
   ArrowRight,
+  AlertTriangle,
+  Target,
 } from 'lucide-react'
 import {
   PieChart,
@@ -37,8 +40,9 @@ export default function DashboardPage() {
   const { accounts, totalBalance, isLoading: accountsLoading } = useAccounts()
   const { incomes, currentMonthTotal: incomeMonthTotal, incomeByCategory, isLoading: incomeLoading } = useIncome()
   const { expenses, currentMonthTotal: expenseMonthTotal, expensesByCategory, isLoading: expensesLoading } = useExpenses()
+  const { budgets, alertBudgets, isLoading: budgetsLoading } = useBudgets()
 
-  const isLoading = authLoading || accountsLoading || incomeLoading || expensesLoading
+  const isLoading = authLoading || accountsLoading || incomeLoading || expensesLoading || budgetsLoading
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-KE', {
@@ -337,7 +341,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Bottom Row */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
@@ -481,6 +485,81 @@ export default function DashboardPage() {
                   <Button variant="outline" size="sm">
                     <Plus className="mr-2 h-4 w-4" />
                     Add Account
+                  </Button>
+                </Link>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Budget Alerts</CardTitle>
+              <CardDescription>Budgets needing attention</CardDescription>
+            </div>
+            <Link href="/budgets">
+              <Button variant="ghost" size="sm">
+                View all
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+          </CardHeader>
+          <CardContent>
+            {budgets.length > 0 ? (
+              alertBudgets.length > 0 ? (
+                <div className="space-y-4">
+                  {alertBudgets.slice(0, 4).map((budget) => (
+                    <div key={budget.id} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {budget.isOverBudget ? (
+                            <AlertTriangle className="h-4 w-4 text-red-500" />
+                          ) : (
+                            <AlertTriangle className="h-4 w-4 text-amber-500" />
+                          )}
+                          <span className="text-sm font-medium">
+                            {budget.expense_categories?.name || 'Budget'}
+                          </span>
+                        </div>
+                        <Badge
+                          variant={budget.isOverBudget ? 'destructive' : 'outline'}
+                          className={!budget.isOverBudget ? 'border-amber-500 text-amber-600' : ''}
+                        >
+                          {budget.percentage.toFixed(0)}%
+                        </Badge>
+                      </div>
+                      <Progress
+                        value={Math.min(budget.percentage, 100)}
+                        className={`h-1.5 ${
+                          budget.isOverBudget
+                            ? '[&>div]:bg-red-500'
+                            : '[&>div]:bg-amber-500'
+                        }`}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        {formatCurrency(budget.spent)} / {formatCurrency(budget.amount)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-[150px]">
+                  <Target className="h-8 w-8 text-green-500 mb-2" />
+                  <p className="text-sm text-green-600 font-medium">All budgets on track!</p>
+                  <p className="text-xs text-muted-foreground">
+                    {budgets.length} budget{budgets.length !== 1 ? 's' : ''} set
+                  </p>
+                </div>
+              )
+            ) : (
+              <div className="flex flex-col items-center justify-center h-[150px]">
+                <Target className="h-8 w-8 text-muted-foreground mb-2" />
+                <p className="text-muted-foreground mb-2">No budgets yet</p>
+                <Link href="/budgets">
+                  <Button variant="outline" size="sm">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create Budget
                   </Button>
                 </Link>
               </div>
