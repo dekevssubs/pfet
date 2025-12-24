@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { format } from 'date-fns'
-import { useAuth, useAccounts, useIncome, useExpenses, useBudgets } from '@/hooks'
+import { useAuth, useAccounts, useIncome, useExpenses, useBudgets, useLoans } from '@/hooks'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -19,7 +19,10 @@ import {
   ArrowRight,
   AlertTriangle,
   Target,
+  HandCoins,
+  Banknote,
 } from 'lucide-react'
+import { MpesaQuickEntry } from '@/components/mpesa-quick-entry'
 import {
   PieChart,
   Pie,
@@ -41,8 +44,9 @@ export default function DashboardPage() {
   const { incomes, currentMonthTotal: incomeMonthTotal, incomeByCategory, isLoading: incomeLoading } = useIncome()
   const { expenses, currentMonthTotal: expenseMonthTotal, expensesByCategory, isLoading: expensesLoading } = useExpenses()
   const { budgets, alertBudgets, isLoading: budgetsLoading } = useBudgets()
+  const { loans, totalLent, totalBorrowed, overdueLoans, isLoading: loansLoading } = useLoans()
 
-  const isLoading = authLoading || accountsLoading || incomeLoading || expensesLoading || budgetsLoading
+  const isLoading = authLoading || accountsLoading || incomeLoading || expensesLoading || budgetsLoading || loansLoading
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-KE', {
@@ -138,6 +142,7 @@ export default function DashboardPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <MpesaQuickEntry />
           <Link href="/income">
             <Button variant="outline" size="sm">
               <Plus className="mr-2 h-4 w-4" />
@@ -341,7 +346,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Bottom Row */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
@@ -560,6 +565,71 @@ export default function DashboardPage() {
                   <Button variant="outline" size="sm">
                     <Plus className="mr-2 h-4 w-4" />
                     Create Budget
+                  </Button>
+                </Link>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Loans</CardTitle>
+              <CardDescription>Money lent and borrowed</CardDescription>
+            </div>
+            <Link href="/loans">
+              <Button variant="ghost" size="sm">
+                View all
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+          </CardHeader>
+          <CardContent>
+            {loans.length > 0 ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <HandCoins className="h-4 w-4 text-green-600" />
+                    <span className="text-sm">You&apos;re owed</span>
+                  </div>
+                  <span className="text-sm font-medium text-green-600">
+                    {formatCurrency(totalLent)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Banknote className="h-4 w-4 text-orange-600" />
+                    <span className="text-sm">You owe</span>
+                  </div>
+                  <span className="text-sm font-medium text-orange-600">
+                    {formatCurrency(totalBorrowed)}
+                  </span>
+                </div>
+                {overdueLoans.length > 0 && (
+                  <div className="flex items-center justify-between border-t pt-2">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 text-red-500" />
+                      <span className="text-sm text-red-600">Overdue</span>
+                    </div>
+                    <Badge variant="destructive">{overdueLoans.length}</Badge>
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Net: {formatCurrency(totalLent - totalBorrowed)}
+                </p>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-[150px]">
+                <div className="flex gap-2 mb-2">
+                  <HandCoins className="h-6 w-6 text-muted-foreground" />
+                  <Banknote className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <p className="text-muted-foreground mb-2">No loans tracked</p>
+                <Link href="/loans">
+                  <Button variant="outline" size="sm">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Loan
                   </Button>
                 </Link>
               </div>
