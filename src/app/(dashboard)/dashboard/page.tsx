@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { format } from 'date-fns'
-import { useAuth, useAccounts, useIncome } from '@/hooks'
+import { useAuth, useAccounts, useIncome, useExpenses } from '@/hooks'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -28,15 +28,17 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
+  Legend,
 } from 'recharts'
 import { CHART_COLORS } from '@/lib/constants'
 
 export default function DashboardPage() {
   const { profile, isLoading: authLoading } = useAuth()
   const { accounts, totalBalance, isLoading: accountsLoading } = useAccounts()
-  const { incomes, currentMonthTotal, incomeByCategory, isLoading: incomeLoading } = useIncome()
+  const { incomes, currentMonthTotal: incomeMonthTotal, incomeByCategory, isLoading: incomeLoading } = useIncome()
+  const { expenses, currentMonthTotal: expenseMonthTotal, expensesByCategory, isLoading: expensesLoading } = useExpenses()
 
-  const isLoading = authLoading || accountsLoading || incomeLoading
+  const isLoading = authLoading || accountsLoading || incomeLoading || expensesLoading
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-KE', {
@@ -48,7 +50,7 @@ export default function DashboardPage() {
   }
 
   // Calculate last month's income for comparison
-  const lastMonthTotal = incomes
+  const lastMonthIncomeTotal = incomes
     .filter((inc) => {
       const incomeDate = new Date(inc.date)
       const now = new Date()
@@ -60,15 +62,33 @@ export default function DashboardPage() {
     })
     .reduce((sum, inc) => sum + Number(inc.amount), 0)
 
-  const incomeChange = lastMonthTotal > 0
-    ? ((currentMonthTotal - lastMonthTotal) / lastMonthTotal) * 100
-    : currentMonthTotal > 0 ? 100 : 0
+  const incomeChange = lastMonthIncomeTotal > 0
+    ? ((incomeMonthTotal - lastMonthIncomeTotal) / lastMonthIncomeTotal) * 100
+    : incomeMonthTotal > 0 ? 100 : 0
 
-  // Get recent income transactions (last 5)
-  const recentIncomes = incomes.slice(0, 5)
+  // Calculate last month's expenses for comparison
+  const lastMonthExpenseTotal = expenses
+    .filter((exp) => {
+      const expenseDate = new Date(exp.date)
+      const now = new Date()
+      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1)
+      return (
+        expenseDate.getMonth() === lastMonth.getMonth() &&
+        expenseDate.getFullYear() === lastMonth.getFullYear()
+      )
+    })
+    .reduce((sum, exp) => sum + Number(exp.amount), 0)
 
-  // Monthly income data for bar chart (last 6 months)
-  const monthlyIncomeData = Array.from({ length: 6 }, (_, i) => {
+  const expenseChange = lastMonthExpenseTotal > 0
+    ? ((expenseMonthTotal - lastMonthExpenseTotal) / lastMonthExpenseTotal) * 100
+    : expenseMonthTotal > 0 ? 100 : 0
+
+  // Get recent transactions (combined income and expenses, last 5)
+  const recentIncomes = incomes.slice(0, 3)
+  const recentExpenses = expenses.slice(0, 3)
+
+  // Monthly data for bar chart (last 6 months)
+  const monthlyData = Array.from({ length: 6 }, (_, i) => {
     const date = new Date()
     date.setMonth(date.getMonth() - (5 - i))
     const monthIncomes = incomes.filter((inc) => {
@@ -78,15 +98,24 @@ export default function DashboardPage() {
         incDate.getFullYear() === date.getFullYear()
       )
     })
+    const monthExpenses = expenses.filter((exp) => {
+      const expDate = new Date(exp.date)
+      return (
+        expDate.getMonth() === date.getMonth() &&
+        expDate.getFullYear() === date.getFullYear()
+      )
+    })
     return {
       month: format(date, 'MMM'),
       income: monthIncomes.reduce((sum, inc) => sum + Number(inc.amount), 0),
-      expenses: 0, // Will be added when expenses are implemented
+      expenses: monthExpenses.reduce((sum, exp) => sum + Number(exp.amount), 0),
     }
   })
 
   // Calculate savings rate
-  const savingsRate = currentMonthTotal > 0 ? 100 : 0 // Will be updated when expenses are added
+  const savingsRate = incomeMonthTotal > 0
+    ? Math.round(((incomeMonthTotal - expenseMonthTotal) / incomeMonthTotal) * 100)
+    : 0
 
   if (isLoading) {
     return <DashboardSkeleton />
@@ -105,16 +134,16 @@ export default function DashboardPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Link href="/accounts">
+          <Link href="/income">
             <Button variant="outline" size="sm">
               <Plus className="mr-2 h-4 w-4" />
-              Add Account
+              Add Income
             </Button>
           </Link>
-          <Link href="/income">
+          <Link href="/expenses">
             <Button size="sm">
               <Plus className="mr-2 h-4 w-4" />
-              Add Income
+              Add Expense
             </Button>
           </Link>
         </div>
@@ -142,7 +171,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              {formatCurrency(currentMonthTotal)}
+              {formatCurrency(incomeMonthTotal)}
             </div>
             <p className="text-xs text-muted-foreground flex items-center gap-1">
               {incomeChange >= 0 ? (
@@ -163,10 +192,16 @@ export default function DashboardPage() {
             <TrendingDown className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{formatCurrency(0)}</div>
+            <div className="text-2xl font-bold text-red-600">{formatCurrency(expenseMonthTotal)}</div>
             <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <ArrowDownRight className="h-3 w-3 text-green-500" />
-              <span>Coming in Phase 3</span>
+              {expenseChange <= 0 ? (
+                <ArrowDownRight className="h-3 w-3 text-green-500" />
+              ) : (
+                <ArrowUpRight className="h-3 w-3 text-red-500" />
+              )}
+              <span className={expenseChange <= 0 ? 'text-green-600' : 'text-red-600'}>
+                {expenseChange >= 0 ? '+' : ''}{expenseChange.toFixed(0)}% from last month
+              </span>
             </p>
           </CardContent>
         </Card>
@@ -177,9 +212,11 @@ export default function DashboardPage() {
             <PiggyBank className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{savingsRate}%</div>
+            <div className={`text-2xl font-bold ${savingsRate >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {savingsRate}%
+            </div>
             <p className="text-xs text-muted-foreground">
-              Of monthly income saved
+              {savingsRate >= 20 ? 'Great job saving!' : savingsRate >= 0 ? 'Room for improvement' : 'Spending more than earning'}
             </p>
           </CardContent>
         </Card>
@@ -189,15 +226,15 @@ export default function DashboardPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
         <Card className="col-span-4">
           <CardHeader>
-            <CardTitle>Monthly Income</CardTitle>
+            <CardTitle>Income vs Expenses</CardTitle>
             <CardDescription>
-              Your income over the last 6 months
+              Your cash flow over the last 6 months
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {monthlyIncomeData.some(d => d.income > 0) ? (
+            {monthlyData.some(d => d.income > 0 || d.expenses > 0) ? (
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={monthlyIncomeData}>
+                <BarChart data={monthlyData}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis dataKey="month" className="text-xs" />
                   <YAxis
@@ -205,23 +242,28 @@ export default function DashboardPage() {
                     tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
                   />
                   <Tooltip
-                    formatter={(value) => [formatCurrency(Number(value)), 'Income']}
+                    formatter={(value, name) => [
+                      formatCurrency(Number(value)),
+                      name === 'income' ? 'Income' : 'Expenses'
+                    ]}
                     contentStyle={{
                       backgroundColor: 'hsl(var(--card))',
                       border: '1px solid hsl(var(--border))',
                       borderRadius: '8px',
                     }}
                   />
-                  <Bar dataKey="income" fill="#10B981" radius={[4, 4, 0, 0]} />
+                  <Legend />
+                  <Bar dataKey="income" name="Income" fill="#10B981" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="expenses" name="Expenses" fill="#EF4444" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
               <div className="h-[300px] flex items-center justify-center border-2 border-dashed rounded-lg">
                 <div className="text-center">
-                  <p className="text-muted-foreground mb-2">No income data yet</p>
+                  <p className="text-muted-foreground mb-2">No transaction data yet</p>
                   <Link href="/income">
                     <Button variant="outline" size="sm">
-                      Add your first income
+                      Add your first transaction
                     </Button>
                   </Link>
                 </div>
@@ -232,17 +274,17 @@ export default function DashboardPage() {
 
         <Card className="col-span-3">
           <CardHeader>
-            <CardTitle>Income by Category</CardTitle>
+            <CardTitle>Expenses by Category</CardTitle>
             <CardDescription>
-              This month&apos;s income breakdown
+              This month&apos;s spending breakdown
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {incomeByCategory.length > 0 ? (
+            {expensesByCategory.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
                   <Pie
-                    data={incomeByCategory}
+                    data={expensesByCategory}
                     cx="50%"
                     cy="50%"
                     innerRadius={60}
@@ -250,7 +292,7 @@ export default function DashboardPage() {
                     paddingAngle={2}
                     dataKey="value"
                   >
-                    {incomeByCategory.map((entry, index) => (
+                    {expensesByCategory.map((entry, index) => (
                       <Cell
                         key={`cell-${index}`}
                         fill={entry.color || CHART_COLORS[index % CHART_COLORS.length]}
@@ -270,13 +312,13 @@ export default function DashboardPage() {
             ) : (
               <div className="h-[300px] flex items-center justify-center border-2 border-dashed rounded-lg">
                 <p className="text-muted-foreground">
-                  No income recorded this month
+                  No expenses recorded this month
                 </p>
               </div>
             )}
-            {incomeByCategory.length > 0 && (
+            {expensesByCategory.length > 0 && (
               <div className="mt-4 space-y-2">
-                {incomeByCategory.map((cat, index) => (
+                {expensesByCategory.slice(0, 5).map((cat, index) => (
                   <div key={cat.name} className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div
@@ -300,7 +342,7 @@ export default function DashboardPage() {
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <CardTitle>Recent Income</CardTitle>
-              <CardDescription>Your latest income transactions</CardDescription>
+              <CardDescription>Latest income transactions</CardDescription>
             </div>
             <Link href="/income">
               <Button variant="ghost" size="sm">
@@ -337,8 +379,56 @@ export default function DashboardPage() {
                 ))}
               </div>
             ) : (
-              <div className="flex items-center justify-center h-[200px] text-muted-foreground">
+              <div className="flex items-center justify-center h-[150px] text-muted-foreground">
                 No income recorded yet
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Recent Expenses</CardTitle>
+              <CardDescription>Latest expense transactions</CardDescription>
+            </div>
+            <Link href="/expenses">
+              <Button variant="ghost" size="sm">
+                View all
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+          </CardHeader>
+          <CardContent>
+            {recentExpenses.length > 0 ? (
+              <div className="space-y-4">
+                {recentExpenses.map((expense) => (
+                  <div key={expense.id} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-2 h-2 rounded-full"
+                        style={{
+                          backgroundColor: expense.expense_categories?.color || '#EF4444',
+                        }}
+                      />
+                      <div>
+                        <p className="text-sm font-medium">
+                          {expense.expense_categories?.name || 'Expense'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {format(new Date(expense.date), 'dd MMM')}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-sm font-medium text-red-600">
+                      -{formatCurrency(Number(expense.amount))}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-[150px] text-muted-foreground">
+                No expenses recorded yet
               </div>
             )}
           </CardContent>
@@ -385,7 +475,7 @@ export default function DashboardPage() {
                 )}
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center h-[200px]">
+              <div className="flex flex-col items-center justify-center h-[150px]">
                 <p className="text-muted-foreground mb-2">No accounts yet</p>
                 <Link href="/accounts">
                   <Button variant="outline" size="sm">
@@ -395,38 +485,6 @@ export default function DashboardPage() {
                 </Link>
               </div>
             )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Coming Soon</CardTitle>
-            <CardDescription>Features in upcoming phases</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm">Phase 3: Expenses</span>
-                  <span className="text-xs text-muted-foreground">Next</span>
-                </div>
-                <Progress value={0} className="h-2" />
-              </div>
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm">Phase 4: Budgets</span>
-                  <span className="text-xs text-muted-foreground">Upcoming</span>
-                </div>
-                <Progress value={0} className="h-2" />
-              </div>
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm">Phase 5: PAYE Calculator</span>
-                  <span className="text-xs text-muted-foreground">Upcoming</span>
-                </div>
-                <Progress value={0} className="h-2" />
-              </div>
-            </div>
           </CardContent>
         </Card>
       </div>
