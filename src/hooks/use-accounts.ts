@@ -49,7 +49,7 @@ export function useAccounts() {
     } finally {
       setIsLoading(false)
     }
-  }, [supabase, user])
+  }, [user])
 
   // Initial fetch
   useEffect(() => {

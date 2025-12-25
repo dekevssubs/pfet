@@ -58,7 +58,7 @@ export function useIncome() {
     } finally {
       setIsLoading(false)
     }
-  }, [supabase, user])
+  }, [user])
 
   // Initial fetch
   useEffect(() => {

@@ -115,7 +115,7 @@ export function useGoals() {
     } finally {
       setIsLoading(false)
     }
-  }, [supabase, user, calculateGoalDetails])
+  }, [user, calculateGoalDetails])
 
   useEffect(() => {
     fetchGoals()

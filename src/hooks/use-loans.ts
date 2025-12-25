@@ -105,7 +105,7 @@ export function useLoans() {
     } finally {
       setIsLoading(false)
     }
-  }, [supabase, calculateLoanDetails])
+  }, [calculateLoanDetails])
 
   useEffect(() => {
     fetchLoans()

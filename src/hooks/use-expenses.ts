@@ -58,7 +58,7 @@ export function useExpenses() {
     } finally {
       setIsLoading(false)
     }
-  }, [supabase, user])
+  }, [user])
 
   // Initial fetch
   useEffect(() => {

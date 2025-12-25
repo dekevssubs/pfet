@@ -68,7 +68,7 @@ export function useBudgets() {
     } finally {
       setIsLoading(false)
     }
-  }, [supabase, user])
+  }, [user])
 
   // Fetch expenses for budget calculations
   const fetchExpenses = useCallback(async () => {
@@ -86,7 +86,7 @@ export function useBudgets() {
     } catch (err) {
       console.error('Failed to fetch expenses for budget:', err)
     }
-  }, [supabase, user])
+  }, [user])
 
   // Initial fetch
   useEffect(() => {

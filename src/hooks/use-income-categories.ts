@@ -38,7 +38,7 @@ export function useIncomeCategories() {
     } finally {
       setIsLoading(false)
     }
-  }, [supabase, user])
+  }, [user])
 
   // Initial fetch
   useEffect(() => {
