@@ -43,7 +43,10 @@ export function useExpenseCategories() {
 
   // Fetch all expense categories
   const fetchCategories = useCallback(async () => {
-    if (!user) return
+    if (!user) {
+      setIsLoading(false)
+      return
+    }
 
     setIsLoading(true)
     setError(null)

@@ -31,7 +31,10 @@ export function useExpenses() {
 
   // Fetch all expense records
   const fetchExpenses = useCallback(async () => {
-    if (!user) return
+    if (!user) {
+      setIsLoading(false)
+      return
+    }
 
     setIsLoading(true)
     setError(null)

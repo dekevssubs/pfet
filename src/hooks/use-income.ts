@@ -31,7 +31,10 @@ export function useIncome() {
 
   // Fetch all income records
   const fetchIncomes = useCallback(async () => {
-    if (!user) return
+    if (!user) {
+      setIsLoading(false)
+      return
+    }
 
     setIsLoading(true)
     setError(null)

@@ -62,7 +62,10 @@ export function useLoans() {
     setIsLoading(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      if (!user) {
+        setIsLoading(false)
+        return
+      }
 
       // Fetch loans
       const { data: loansData, error: loansError } = await (supabase

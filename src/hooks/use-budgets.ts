@@ -42,7 +42,10 @@ export function useBudgets() {
 
   // Fetch all budgets
   const fetchBudgets = useCallback(async () => {
-    if (!user) return
+    if (!user) {
+      setIsLoading(false)
+      return
+    }
 
     setIsLoading(true)
     setError(null)

@@ -15,7 +15,10 @@ export function useIncomeCategories() {
 
   // Fetch all income categories
   const fetchCategories = useCallback(async () => {
-    if (!user) return
+    if (!user) {
+      setIsLoading(false)
+      return
+    }
 
     setIsLoading(true)
     setError(null)
