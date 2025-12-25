@@ -84,23 +84,18 @@ export function useIncome() {
 
       // Update account balance if account is linked
       if (income.account_id) {
-        await (supabase as any).rpc('increment_account_balance', {
-          account_id: income.account_id,
-          amount: income.amount,
-        }).catch(() => {
-          // Fallback if RPC doesn't exist - update directly
-          (supabase.from('accounts') as any)
-            .select('balance')
+        const { data: account } = await (supabase
+          .from('accounts') as any)
+          .select('balance')
+          .eq('id', income.account_id)
+          .single()
+
+        if (account) {
+          await (supabase
+            .from('accounts') as any)
+            .update({ balance: Number(account.balance) + Number(income.amount) })
             .eq('id', income.account_id)
-            .single()
-            .then(({ data: account }: { data: any }) => {
-              if (account) {
-                (supabase.from('accounts') as any)
-                  .update({ balance: Number(account.balance) + Number(income.amount) })
-                  .eq('id', income.account_id)
-              }
-            })
-        })
+        }
       }
 
       setIncomes((prev) => [data, ...prev])
