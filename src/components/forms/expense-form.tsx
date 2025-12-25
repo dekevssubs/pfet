@@ -197,8 +197,8 @@ export function ExpenseForm({
             <FormItem>
               <FormLabel>Pay From Account (Optional)</FormLabel>
               <Select
-                onValueChange={field.onChange}
-                defaultValue={field.value || ''}
+                onValueChange={(value) => field.onChange(value === 'none' ? '' : value)}
+                defaultValue={field.value || 'none'}
               >
                 <FormControl>
                   <SelectTrigger>
@@ -206,7 +206,7 @@ export function ExpenseForm({
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  <SelectItem value="">No account</SelectItem>
+                  <SelectItem value="none">No account</SelectItem>
                   {accounts.map((account) => (
                     <SelectItem key={account.id} value={account.id}>
                       <div className="flex items-center gap-2">

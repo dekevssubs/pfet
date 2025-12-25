@@ -189,14 +189,14 @@ export function MpesaQuickEntry() {
             <div className="space-y-2">
               <Label>Account</Label>
               <Select
-                value={watchAccountId}
-                onValueChange={(value) => setValue('account_id', value)}
+                value={watchAccountId || 'none'}
+                onValueChange={(value) => setValue('account_id', value === 'none' ? '' : value)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select account" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No account</SelectItem>
+                  <SelectItem value="none">No account</SelectItem>
                   {accounts.map((account) => (
                     <SelectItem key={account.id} value={account.id}>
                       <div className="flex items-center gap-2">
@@ -215,14 +215,14 @@ export function MpesaQuickEntry() {
             <div className="space-y-2">
               <Label>Category</Label>
               <Select
-                value={watchCategoryId}
-                onValueChange={(value) => setValue('category_id', value)}
+                value={watchCategoryId || 'none'}
+                onValueChange={(value) => setValue('category_id', value === 'none' ? '' : value)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No category</SelectItem>
+                  <SelectItem value="none">No category</SelectItem>
                   {transactionType === 'send'
                     ? expenseCategories.map((category) => (
                         <SelectItem key={category.id} value={category.id}>
