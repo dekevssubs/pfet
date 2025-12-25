@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { format } from 'date-fns'
-import { useAuth, useAccounts, useIncome, useExpenses, useBudgets, useLoans } from '@/hooks'
+import { useAuth, useAccounts, useIncome, useExpenses, useBudgets, useLoans, useGoals } from '@/hooks'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -45,8 +45,9 @@ export default function DashboardPage() {
   const { expenses, currentMonthTotal: expenseMonthTotal, expensesByCategory, isLoading: expensesLoading } = useExpenses()
   const { budgets, alertBudgets, isLoading: budgetsLoading } = useBudgets()
   const { loans, totalLent, totalBorrowed, overdueLoans, isLoading: loansLoading } = useLoans()
+  const { activeGoals, totalTargetAmount, totalCurrentAmount, isLoading: goalsLoading } = useGoals()
 
-  const isLoading = authLoading || accountsLoading || incomeLoading || expensesLoading || budgetsLoading || loansLoading
+  const isLoading = authLoading || accountsLoading || incomeLoading || expensesLoading || budgetsLoading || loansLoading || goalsLoading
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-KE', {
@@ -346,7 +347,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Bottom Row */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
@@ -630,6 +631,66 @@ export default function DashboardPage() {
                   <Button variant="outline" size="sm">
                     <Plus className="mr-2 h-4 w-4" />
                     Add Loan
+                  </Button>
+                </Link>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Goals Progress</CardTitle>
+              <CardDescription>Your savings goals</CardDescription>
+            </div>
+            <Link href="/goals">
+              <Button variant="ghost" size="sm">
+                View all
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+          </CardHeader>
+          <CardContent>
+            {activeGoals.length > 0 ? (
+              <div className="space-y-4">
+                {activeGoals.slice(0, 3).map((goal) => (
+                  <div key={goal.id} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium truncate max-w-[120px]">
+                        {goal.name}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {goal.progress_percentage.toFixed(0)}%
+                      </span>
+                    </div>
+                    <Progress
+                      value={goal.progress_percentage}
+                      className="h-1.5"
+                      style={{
+                        ['--progress-background' as any]: goal.color || '#10B981',
+                      }}
+                    />
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>{formatCurrency(Number(goal.current_amount))}</span>
+                      <span>{formatCurrency(Number(goal.target_amount))}</span>
+                    </div>
+                  </div>
+                ))}
+                {activeGoals.length > 3 && (
+                  <p className="text-xs text-muted-foreground text-center">
+                    +{activeGoals.length - 3} more goals
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-[150px]">
+                <Target className="h-8 w-8 text-muted-foreground mb-2" />
+                <p className="text-muted-foreground mb-2">No active goals</p>
+                <Link href="/goals">
+                  <Button variant="outline" size="sm">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create Goal
                   </Button>
                 </Link>
               </div>
